@@ -4,160 +4,53 @@ Icing Detection Using Multi-Parameter Persistence
 Detects ice accumulation using persistence across temperature and time scales.
 """
 
-import logging
-import os
-from typing import Any, Dict, List, Tuple
-
-import gudhi
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import requests
-from io import StringIO
-from pathlib import Path
-
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+import matplotlib.pyplot as plt
+import gudhi
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    f1_score,
-    roc_auc_score,
-)
-from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
-
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report, f1_score, roc_auc_score
+from pathlib import Path
 import warnings
-
-warnings.filterwarnings("ignore")
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+warnings.filterwarnings('ignore')
 
 np.random.seed(42)
 
-# NREL API configuration (real data, northern location for icing)
-NREL_API_URL = (
-    "https://developer.nrel.gov/api/wind-toolkit/v2/wind/wtk-bchrrr-v1-0-0-download.csv"
-)
-DEFAULT_NREL_EMAIL = "kyletjones@gmail.com"
-
-
-def _get_nrel_api_key() -> str:
-    """Return the NREL API key from the environment."""
-    api_key = os.environ.get("NREL_API_KEY")
-    if not api_key:
-        raise RuntimeError(
-            "NREL_API_KEY environment variable is not set. "
-            "Export your key, e.g. `export NREL_API_KEY='your-key-here'`."
-        )
-    return api_key
-
-
-def _normalize_nrel_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Normalize NREL Wind Toolkit column names to the ones used in this script.
-    Needs wind speed, temperature, humidity, and a timestamp column.
-    """
-    cols = {c.lower(): c for c in df.columns}
-
-    # Timestamp
-    ts_col = None
-    for key in ['timestamp', 'time', 'datetime', 'date_time']:
-        if key in cols:
-            ts_col = cols[key]
-            break
-    if ts_col is None:
-        raise ValueError(f"Could not find a timestamp column in NREL data. Columns: {list(df.columns)}")
-
-    # Wind speed
-    ws_col = None
-    for key in ['wind_speed', 'windspeed', 'windspeed_80m', 'wind_speed_80m']:
-        if key in cols:
-            ws_col = cols[key]
-            break
-    if ws_col is None:
-        raise ValueError("Could not find a wind speed column in NREL data.")
-
-    # Temperature
-    temp_col = None
-    for key in ['air_temperature', 'temperature', 'temperature_80m']:
-        if key in cols:
-            temp_col = cols[key]
-            break
-    if temp_col is None:
-        raise ValueError("Could not find a temperature column in NREL data.")
-
-    # Relative humidity
-    hum_col = None
-    for key in ['relative_humidity', 'humidity', 'relative_humidity_80m']:
-        if key in cols:
-            hum_col = cols[key]
-            break
-    if hum_col is None:
-        raise ValueError("Could not find a humidity column in NREL data.")
-
-    df = df.rename(
-        columns={
-            ts_col: 'timestamp',
-            ws_col: 'windspeed_80m',
-            temp_col: 'temperature',
-            hum_col: 'humidity',
-        }
-    )
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    return df[['timestamp', 'windspeed_80m', 'temperature', 'humidity']]
-
-
-def fetch_nrel_wind_data(
-    lat: float = 45.0,
-    lon: float = -95.0,
-    years: List[int] | None = None,
-    email: str = DEFAULT_NREL_EMAIL,
-) -> pd.DataFrame:
-    """
-    Fetch real wind/meteorological data from the NREL Wind Toolkit API for icing studies.
-    """
-    if years is None:
-        years = [2010, 2011, 2012]
-
-    api_key = _get_nrel_api_key()
-    logger.info(
-        "Requesting NREL Wind Toolkit data lat=%.3f lon=%.3f years=%s", lat, lon, years
-    )
-
-    all_frames: List[pd.DataFrame] = []
-    for year in years:
-        params: Dict[str, Any] = {
-            "api_key": api_key,
-            "lat": lat,
-            "lon": lon,
-            "year": year,
-            "interval": 5,
-            "email": email,
-        }
-        try:
-            response = requests.get(NREL_API_URL, params=params, timeout=60)
-            response.raise_for_status()
-        except requests.RequestException as exc:
-            logger.error("NREL request failed for year=%s: %s", year, exc)
-            raise RuntimeError(
-                f"NREL API request failed for year {year}. See logs for details."
-            ) from exc
-
-        year_df = pd.read_csv(StringIO(response.text))
-        year_df = _normalize_nrel_columns(year_df)
-        all_frames.append(year_df)
-
-    df = (
-        pd.concat(all_frames, axis=0)
-        .sort_values("timestamp")
-        .reset_index(drop=True)
-    )
-    logger.info("Fetched %d NREL records spanning %d year(s)", len(df), len(years))
+def fetch_nrel_wind_data(lat=45.0, lon=-95.0, years=[2010, 2011, 2012]):
+    """Simulate NREL Wind Toolkit data fetch (northern location for icing)."""
+    print(f"Simulating NREL wind data fetch for location ({lat}, {lon})")
+    
+    n_records = 365 * 24 * 12 * len(years)
+    timestamps = pd.date_range(start=f'{years[0]}-01-01', periods=n_records, freq='5min')
+    
+    hours = np.array([t.hour + t.minute/60 for t in timestamps])
+    days = np.array([t.dayofyear for t in timestamps])
+    
+    seasonal = 2 * np.sin(2 * np.pi * days / 365)
+    diurnal = 1.5 * np.sin(2 * np.pi * hours / 24)
+    
+    windspeed_80m = 8.5 + seasonal + diurnal + np.random.normal(0, 2, n_records)
+    windspeed_80m = np.clip(windspeed_80m, 0, 25)
+    
+    # Temperature with realistic winter cold
+    temperature = 5 + 15 * np.cos(2 * np.pi * days / 365 - np.pi/2) + np.random.normal(0, 4, n_records)
+    temperature = np.clip(temperature, -25, 35)
+    
+    # Humidity (higher in winter)
+    humidity = 65 + 20 * np.cos(2 * np.pi * days / 365 - np.pi/2) + np.random.normal(0, 10, n_records)
+    humidity = np.clip(humidity, 30, 100)
+    
+    df = pd.DataFrame({
+        'timestamp': timestamps,
+        'windspeed_80m': windspeed_80m,
+        'temperature': temperature,
+        'humidity': humidity
+    })
+    
+    print(f"Fetched {len(df)} records spanning {len(years)} years")
     return df
 
 def simulate_turbine_power_icing(windspeed, temperature, humidity, icing_severity=0, rated_power=2.0):
