@@ -1,0 +1,577 @@
+#!/usr/bin/env python3
+"""
+Icing Detection Using Multi-Parameter Persistence
+Detects ice accumulation using persistence across temperature and time scales.
+"""
+
+import logging
+import os
+from typing import Any, Dict, List, Tuple
+
+import gudhi
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import requests
+from io import StringIO
+from pathlib import Path
+
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    f1_score,
+    roc_auc_score,
+)
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+
+import warnings
+
+warnings.filterwarnings("ignore")
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+
+np.random.seed(42)
+
+# NREL API configuration (real data, northern location for icing)
+NREL_API_URL = (
+    "https://developer.nrel.gov/api/wind-toolkit/v2/wind/wtk-bchrrr-v1-0-0-download.csv"
+)
+DEFAULT_NREL_EMAIL = "kyletjones@gmail.com"
+
+
+def _get_nrel_api_key() -> str:
+    """Return the NREL API key from the environment."""
+    api_key = os.environ.get("NREL_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "NREL_API_KEY environment variable is not set. "
+            "Export your key, e.g. `export NREL_API_KEY='your-key-here'`."
+        )
+    return api_key
+
+
+def _normalize_nrel_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normalize NREL Wind Toolkit column names to the ones used in this script.
+    Needs wind speed, temperature, humidity, and a timestamp column.
+    """
+    cols = {c.lower(): c for c in df.columns}
+
+    # Timestamp
+    ts_col = None
+    for key in ['timestamp', 'time', 'datetime', 'date_time']:
+        if key in cols:
+            ts_col = cols[key]
+            break
+    if ts_col is None:
+        raise ValueError(f"Could not find a timestamp column in NREL data. Columns: {list(df.columns)}")
+
+    # Wind speed
+    ws_col = None
+    for key in ['wind_speed', 'windspeed', 'windspeed_80m', 'wind_speed_80m']:
+        if key in cols:
+            ws_col = cols[key]
+            break
+    if ws_col is None:
+        raise ValueError("Could not find a wind speed column in NREL data.")
+
+    # Temperature
+    temp_col = None
+    for key in ['air_temperature', 'temperature', 'temperature_80m']:
+        if key in cols:
+            temp_col = cols[key]
+            break
+    if temp_col is None:
+        raise ValueError("Could not find a temperature column in NREL data.")
+
+    # Relative humidity
+    hum_col = None
+    for key in ['relative_humidity', 'humidity', 'relative_humidity_80m']:
+        if key in cols:
+            hum_col = cols[key]
+            break
+    if hum_col is None:
+        raise ValueError("Could not find a humidity column in NREL data.")
+
+    df = df.rename(
+        columns={
+            ts_col: 'timestamp',
+            ws_col: 'windspeed_80m',
+            temp_col: 'temperature',
+            hum_col: 'humidity',
+        }
+    )
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    return df[['timestamp', 'windspeed_80m', 'temperature', 'humidity']]
+
+
+def fetch_nrel_wind_data(
+    lat: float = 45.0,
+    lon: float = -95.0,
+    years: List[int] | None = None,
+    email: str = DEFAULT_NREL_EMAIL,
+) -> pd.DataFrame:
+    """
+    Fetch real wind/meteorological data from the NREL Wind Toolkit API for icing studies.
+    """
+    if years is None:
+        years = [2010, 2011, 2012]
+
+    api_key = _get_nrel_api_key()
+    logger.info(
+        "Requesting NREL Wind Toolkit data lat=%.3f lon=%.3f years=%s", lat, lon, years
+    )
+
+    all_frames: List[pd.DataFrame] = []
+    for year in years:
+        params: Dict[str, Any] = {
+            "api_key": api_key,
+            "lat": lat,
+            "lon": lon,
+            "year": year,
+            "interval": 5,
+            "email": email,
+        }
+        try:
+            response = requests.get(NREL_API_URL, params=params, timeout=60)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            logger.error("NREL request failed for year=%s: %s", year, exc)
+            raise RuntimeError(
+                f"NREL API request failed for year {year}. See logs for details."
+            ) from exc
+
+        year_df = pd.read_csv(StringIO(response.text))
+        year_df = _normalize_nrel_columns(year_df)
+        all_frames.append(year_df)
+
+    df = (
+        pd.concat(all_frames, axis=0)
+        .sort_values("timestamp")
+        .reset_index(drop=True)
+    )
+    logger.info("Fetched %d NREL records spanning %d year(s)", len(df), len(years))
+    return df
+
+def simulate_turbine_power_icing(windspeed, temperature, humidity, icing_severity=0, rated_power=2.0):
+    """
+    Simulate turbine power with icing effects.
+    icing_severity: 0 (no ice), 1 (light), 2 (moderate), 3 (severe)
+    """
+    cut_in = 3.0
+    rated_speed = 12.0
+    cut_out = 25.0
+    
+    # Icing reduces power by degrading aerodynamics
+    ice_factors = [1.0, 0.85, 0.60, 0.30]
+    ice_factor = ice_factors[icing_severity]
+    
+    power = np.zeros_like(windspeed)
+    
+    for i, ws in enumerate(windspeed):
+        if ws < cut_in or ws > cut_out:
+            power[i] = 0
+        elif ws < rated_speed:
+            power[i] = rated_power * ((ws - cut_in) / (rated_speed - cut_in)) ** 3
+        else:
+            power[i] = rated_power
+        
+        # Apply icing effect
+        power[i] *= ice_factor
+        
+        # Ice adds additional variability
+        noise_factor = 1.0 + icing_severity * 0.3
+        power[i] += np.random.normal(0, 0.03 * rated_power * noise_factor)
+        power[i] = max(0, power[i])
+    
+    return power
+
+def create_icing_scenarios(df, n_windows=120, window_size=288):
+    """
+    Create labeled windows with and without icing.
+    Icing occurs at T < 0°C and high humidity.
+    """
+    print(f"\nCreating {n_windows} labeled windows (icing vs no-icing)...")
+    
+    windows = []
+    labels = []
+    
+    max_start = len(df) - window_size
+    
+    # Find periods conducive to icing (cold + humid)
+    icing_conditions = (df['temperature'] < 2) & (df['humidity'] > 75)
+    no_icing_conditions = (df['temperature'] > 5) | (df['humidity'] < 60)
+    
+    icing_starts = np.where(icing_conditions)[0]
+    no_icing_starts = np.where(no_icing_conditions)[0]
+    
+    # Filter valid starts
+    icing_starts = icing_starts[(icing_starts < max_start)]
+    no_icing_starts = no_icing_starts[(no_icing_starts < max_start)]
+    
+    # Sample equal numbers
+    n_icing = n_windows // 2
+    n_no_icing = n_windows - n_icing
+    
+    if len(icing_starts) < n_icing:
+        print(f"  Warning: Only {len(icing_starts)} icing periods available, requested {n_icing}")
+        n_icing = min(n_icing, len(icing_starts))
+        n_no_icing = n_windows - n_icing
+    
+    if len(no_icing_starts) < n_no_icing:
+        print(f"  Warning: Only {len(no_icing_starts)} no-icing periods available, requested {n_no_icing}")
+        n_no_icing = min(n_no_icing, len(no_icing_starts))
+    
+    icing_sample = np.random.choice(icing_starts, n_icing, replace=False)
+    no_icing_sample = np.random.choice(no_icing_starts, n_no_icing, replace=False)
+    
+    # Create icing windows
+    for start in icing_sample:
+        window_df = df.iloc[start:start+window_size].copy()
+        
+        icing_severity = np.random.choice([1, 2, 3], p=[0.3, 0.4, 0.3])
+        
+        power = simulate_turbine_power_icing(
+            window_df['windspeed_80m'].values,
+            window_df['temperature'].values,
+            window_df['humidity'].values,
+            icing_severity=icing_severity
+        )
+        
+        window_df['power'] = power
+        window_df['icing_severity'] = icing_severity
+        
+        windows.append(window_df)
+        labels.append(1)
+    
+    # Create no-icing windows
+    for start in no_icing_sample:
+        window_df = df.iloc[start:start+window_size].copy()
+        
+        power = simulate_turbine_power_icing(
+            window_df['windspeed_80m'].values,
+            window_df['temperature'].values,
+            window_df['humidity'].values,
+            icing_severity=0
+        )
+        
+        window_df['power'] = power
+        window_df['icing_severity'] = 0
+        
+        windows.append(window_df)
+        labels.append(0)
+    
+    print(f"Created {sum(labels)} icing windows and {len(labels)-sum(labels)} no-icing windows")
+    return windows, np.array(labels)
+
+def compute_multiparam_persistence_features(window_df):
+    """
+    Compute multi-parameter persistence across temperature and time.
+    Ice persists across both dimensions.
+    """
+    power = window_df['power'].values
+    windspeed = window_df['windspeed_80m'].values
+    temperature = window_df['temperature'].values
+    
+    # Normalize
+    power_norm = (power - power.min()) / (power.max() - power.min() + 1e-8)
+    wind_norm = (windspeed - windspeed.min()) / (windspeed.max() - windspeed.min() + 1e-8)
+    temp_norm = (temperature - temperature.min()) / (temperature.max() - temperature.min() + 1e-8)
+    
+    # Subsample
+    n_samples = min(150, len(power_norm))
+    indices = np.random.choice(len(power_norm), n_samples, replace=False)
+    indices = np.sort(indices)  # Keep temporal order
+    
+    points = np.column_stack([power_norm[indices], wind_norm[indices]])
+    temps = temp_norm[indices]
+    
+    features = {}
+    
+    # Compute persistence at different temperature thresholds
+    temp_thresholds = [0.3, 0.5, 0.7]
+    
+    for t_idx, thresh in enumerate(temp_thresholds):
+        # Filter points by temperature
+        mask = temps <= thresh
+        if mask.sum() < 5:
+            features[f'temp{t_idx}_H0_count'] = 0
+            features[f'temp{t_idx}_H1_max'] = 0
+            continue
+        
+        filtered_points = points[mask]
+        
+        # Compute Rips persistence
+        rips = gudhi.RipsComplex(points=filtered_points, max_edge_length=2.0)
+        simplex_tree = rips.create_simplex_tree(max_dimension=1)
+        simplex_tree.compute_persistence()
+        
+        for dim in [0, 1]:
+            persistence_pairs = simplex_tree.persistence_intervals_in_dimension(dim)
+            finite_pairs = persistence_pairs[np.isfinite(persistence_pairs).all(axis=1)]
+            
+            if len(finite_pairs) > 0:
+                lifetimes = finite_pairs[:, 1] - finite_pairs[:, 0]
+                features[f'temp{t_idx}_H{dim}_count'] = len(finite_pairs)
+                features[f'temp{t_idx}_H{dim}_max'] = np.max(lifetimes)
+                features[f'temp{t_idx}_H{dim}_mean'] = np.mean(lifetimes)
+            else:
+                features[f'temp{t_idx}_H{dim}_count'] = 0
+                features[f'temp{t_idx}_H{dim}_max'] = 0
+                features[f'temp{t_idx}_H{dim}_mean'] = 0
+    
+    # Time-scale persistence (different window sizes)
+    time_windows = [50, 100, 150]
+    
+    for tw_idx, tw in enumerate(time_windows):
+        if tw > len(points):
+            features[f'time{tw_idx}_H1_max'] = 0
+            continue
+        
+        sub_points = points[:tw]
+        
+        rips = gudhi.RipsComplex(points=sub_points, max_edge_length=2.0)
+        simplex_tree = rips.create_simplex_tree(max_dimension=1)
+        simplex_tree.compute_persistence()
+        
+        persistence_pairs = simplex_tree.persistence_intervals_in_dimension(1)
+        finite_pairs = persistence_pairs[np.isfinite(persistence_pairs).all(axis=1)]
+        
+        if len(finite_pairs) > 0:
+            lifetimes = finite_pairs[:, 1] - finite_pairs[:, 0]
+            features[f'time{tw_idx}_H1_max'] = np.max(lifetimes)
+        else:
+            features[f'time{tw_idx}_H1_max'] = 0
+    
+    # Statistical features
+    features['power_mean'] = power.mean()
+    features['power_std'] = power.std()
+    features['temp_mean'] = temperature.mean()
+    features['temp_min'] = temperature.min()
+    features['wind_mean'] = windspeed.mean()
+    features['power_cv'] = power.std() / (power.mean() + 1e-8)
+    
+    return features
+
+def extract_all_features(windows, labels):
+    """Extract multi-parameter persistence features."""
+    print("\nExtracting multi-parameter persistence features...")
+    
+    feature_list = []
+    for i, window_df in enumerate(windows):
+        if i % 20 == 0:
+            print(f"  Processing window {i+1}/{len(windows)}")
+        
+        features = compute_multiparam_persistence_features(window_df)
+        feature_list.append(features)
+    
+    X = pd.DataFrame(feature_list)
+    y = labels
+    
+    # Handle NaN and inf values
+    X = X.replace([np.inf, -np.inf], np.nan)
+    X = X.fillna(0)
+    
+    print(f"\nFeature matrix: {X.shape}")
+    print(f"Label distribution: Icing={sum(y)}, No-icing={len(y)-sum(y)}")
+    
+    return X, y
+
+def train_and_evaluate_models(X, y):
+    """Train and evaluate classifiers."""
+    print("\n" + "="*60)
+    print("TRAINING AND EVALUATION")
+    print("="*60)
+    
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.3, random_state=42, stratify=y
+    )
+    
+    print(f"\nTrain set: {len(X_train)} samples")
+    print(f"Test set: {len(X_test)} samples")
+    
+    models = {
+        'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
+        'SVM (Linear)': SVC(kernel='linear', random_state=42, probability=True),
+        'SVM (RBF)': SVC(kernel='rbf', random_state=42, probability=True),
+        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
+        'Gradient Boosting': GradientBoostingClassifier(n_estimators=100, random_state=42)
+    }
+    
+    results = {}
+    
+    for name, model in models.items():
+        print(f"\n{name}:")
+        model.fit(X_train, y_train)
+        
+        y_pred = model.predict(X_test)
+        y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
+        
+        acc = accuracy_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred)
+        auc = roc_auc_score(y_test, y_proba) if y_proba is not None else None
+        
+        print(f"  Accuracy: {acc:.3f}")
+        print(f"  F1 Score: {f1:.3f}")
+        if auc is not None:
+            print(f"  AUC: {auc:.3f}")
+        
+        results[name] = {
+            'model': model,
+            'accuracy': acc,
+            'f1': f1,
+            'auc': auc,
+            'y_test': y_test,
+            'y_pred': y_pred
+        }
+    
+    return results
+
+def generate_visualizations(windows, labels, X, y, results, out_dir):
+    """Generate comprehensive visualizations."""
+    print("\n" + "="*60)
+    print("GENERATING VISUALIZATIONS")
+    print("="*60)
+    
+    out_dir = Path(out_dir)
+    out_dir.mkdir(exist_ok=True, parents=True)
+    
+    # 1. Model comparison
+    print("\n1. Model comparison...")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    
+    model_names = list(results.keys())
+    accuracies = [results[m]['accuracy'] for m in model_names]
+    f1s = [results[m]['f1'] for m in model_names]
+    
+    axes[0].bar(range(len(model_names)), accuracies, color='#2b2b2b', alpha=0.85)
+    axes[0].set_xticks(range(len(model_names)))
+    axes[0].set_xticklabels(model_names, rotation=45, ha='right')
+    axes[0].set_ylabel('Accuracy')
+    axes[0].set_title('Icing Detection Accuracy')
+    axes[0].set_ylim([0, 1])
+    axes[0].spines['top'].set_visible(False)
+    axes[0].spines['right'].set_visible(False)
+    
+    axes[1].bar(range(len(model_names)), f1s, color='#d62728', alpha=0.85)
+    axes[1].set_xticks(range(len(model_names)))
+    axes[1].set_xticklabels(model_names, rotation=45, ha='right')
+    axes[1].set_ylabel('F1 Score')
+    axes[1].set_title('Icing Detection F1 Score')
+    axes[1].set_ylim([0, 1])
+    axes[1].spines['top'].set_visible(False)
+    axes[1].spines['right'].set_visible(False)
+    
+    plt.tight_layout()
+    plt.savefig(out_dir / "model_comparison.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"  Saved: model_comparison.png")
+    
+    # 2. Temperature vs power scatter (icing vs no-icing)
+    print("2. Temperature-power relationship...")
+    icing_idx = np.where(labels == 1)[0][0]
+    no_icing_idx = np.where(labels == 0)[0][0]
+    
+    icing_window = windows[icing_idx]
+    no_icing_window = windows[no_icing_idx]
+    
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    
+    axes[0].scatter(no_icing_window['temperature'], no_icing_window['power'],
+                   alpha=0.5, s=20, color='#696969', edgecolors='#2b2b2b', linewidth=0.5)
+    axes[0].set_xlabel('Temperature (°C)')
+    axes[0].set_ylabel('Power (MW)')
+    axes[0].set_title('No Icing (normal operation)')
+    
+    axes[1].scatter(icing_window['temperature'], icing_window['power'],
+                   alpha=0.5, s=20, color='#d62728', edgecolors='#8b0000', linewidth=0.5)
+    axes[1].set_xlabel('Temperature (°C)')
+    axes[1].set_ylabel('Power (MW)')
+    axes[1].set_title('Icing Event (reduced power', fontweight='normal)')
+    
+    plt.tight_layout()
+    plt.savefig(out_dir / "temperature_power.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"  Saved: temperature_power.png")
+    
+    # 3. Multi-parameter feature distributions
+    print("3. Multi-parameter feature distributions...")
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    
+    mp_features = ['temp0_H1_max', 'temp1_H1_max', 'time0_H1_max', 'time1_H1_max']
+    
+    for ax, feature in zip(axes.flatten(), mp_features):
+        if feature in X.columns:
+            no_ice_values = X[y == 0][feature]
+            ice_values = X[y == 1][feature]
+            
+            ax.hist(no_ice_values, bins=20, alpha=0.6, label='No Icing', color='#696969', edgecolor='#2b2b2b')
+            ax.hist(ice_values, bins=20, alpha=0.6, label='Icing', color='#d62728', edgecolor='#2b2b2b')
+            ax.set_xlabel(feature)
+            ax.set_ylabel('Count')
+            ax.set_title(f'Distribution: {feature}')
+            ax.legend(frameon=False)
+    
+    plt.tight_layout()
+    plt.savefig(out_dir / "multiparam_distributions.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"  Saved: multiparam_distributions.png")
+    
+    # 4. Feature importance
+    print("4. Feature importance...")
+    if 'Random Forest' in results:
+        rf_model = results['Random Forest']['model']
+        importances = rf_model.feature_importances_
+        indices = np.argsort(importances)[::-1][:10]
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.bar(range(len(indices)), importances[indices], color='#2b2b2b', alpha=0.85)
+        ax.set_xticks(range(len(indices)))
+        ax.set_xticklabels([X.columns[i] for i in indices], rotation=45, ha='right')
+        ax.set_ylabel('Importance')
+        ax.set_title('Top 10 Feature Importances (Random Forest)')
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        plt.tight_layout()
+        plt.savefig(out_dir / "feature_importance.png", dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"  Saved: feature_importance.png")
+    
+    print("\nAll visualizations generated successfully!")
+
+def main():
+    """Main execution."""
+    print("="*60)
+    print("ICING DETECTION USING MULTI-PARAMETER PERSISTENCE")
+    print("="*60)
+    
+    df = fetch_nrel_wind_data()
+    windows, labels = create_icing_scenarios(df, n_windows=120, window_size=288)
+    X, y = extract_all_features(windows, labels)
+    results = train_and_evaluate_models(X, y)
+    
+    out_dir = Path(__file__).parent / "figures_icing"
+    generate_visualizations(windows, labels, X, y, results, out_dir)
+    
+    print("\n" + "="*60)
+    print("FINAL SUMMARY")
+    print("="*60)
+    best_model_name = max(results.keys(), key=lambda k: results[k]['accuracy'])
+    best_result = results[best_model_name]
+    print(f"\nBest Model: {best_model_name}")
+    print(f"  Accuracy: {best_result['accuracy']:.3f}")
+    print(f"  F1 Score: {best_result['f1']:.3f}")
+    
+    print(f"\nVisualizations saved to: {out_dir}/")
+    print("\nAnalysis complete!")
+
+if __name__ == "__main__":
+    main()
+
