@@ -16,6 +16,23 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from scipy.spatial import distance_matrix
 import warnings
+import logging
+import yaml
+
+def load_config(config_path=None):
+    """Load configuration from YAML file."""
+    if config_path is None:
+        config_path = Path(__file__).parent / 'config.yaml'
+    if not config_path.exists():
+        return {}
+    with open(config_path) as _f:
+        return _yaml.safe_load(_f) or {}
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
 # Configuration
@@ -28,7 +45,7 @@ def fetch_nrel_wind_data(lat=41.5, lon=-93.5, years=[2017]):
     all_data = []
     
     for year in years:
-        print(f"   Fetching year {year}...")
+        logger.info(f"   Fetching year {year}...")
         
         params = {
             'api_key': NREL_API_KEY,
@@ -59,10 +76,10 @@ def fetch_nrel_wind_data(lat=41.5, lon=-93.5, years=[2017]):
             
             df_year['time'] = pd.to_datetime(df_year[['Year', 'Month', 'Day', 'Hour', 'Minute']])
             all_data.append(df_year)
-            print(f"     ✓ Fetched {len(df_year):,} records")
+            logger.info(f"     ✓ Fetched {len(df_year):,} records")
             
         except Exception as e:
-            print(f"     ✗ Error: {e}")
+            logger.error(f"     ✗ Error: {e}")
             continue
     
     if not all_data:
@@ -363,7 +380,7 @@ def visualize_mapper_graph(G, y_labels, out_dir):
     pos = nx.spring_layout(G, k=0.5, iterations=50, seed=42)
     
     # Plot
-    fig, ax = plt.subplots(figsize=(12, 10))
+    fig, ax = plt.subplots(figsize=tuple(config.get('output', {}).get('figsize', [12, 10])))
     
     nx.draw_networkx_edges(G, pos, alpha=0.3, width=1)
     nx.draw_networkx_nodes(G, pos, node_color=node_colors, 
@@ -389,37 +406,37 @@ def visualize_mapper_graph(G, y_labels, out_dir):
 
 
 def main():
-    np.random.seed(42)
+    np.random.seed(config.get('data', {}).get('seed', 42))
     
-    print("="*70)
-    print("Yaw Misalignment Detection Using Mapper")
-    print("="*70)
+    logger.info("="*70)
+    logger.info("Yaw Misalignment Detection Using Mapper")
+    logger.info("="*70)
     
     # 1. Fetch wind data
-    print("\n1. Fetching NREL wind data...")
+    logger.info("\n1. Fetching NREL wind data...")
     wind_data = fetch_nrel_wind_data(lat=41.5, lon=-93.5, years=[2017, 2018])
     if wind_data is None:
-        print("Failed to fetch data")
+        logger.error("Failed to fetch data")
         return
-    print(f"   Total records: {len(wind_data):,}")
+    logger.info(f"   Total records: {len(wind_data):,}")
     
     # 2. Simulate turbine with misalignment
-    print("\n2. Simulating turbine with yaw misalignment...")
+    logger.info("\n2. Simulating turbine with yaw misalignment...")
     df = simulate_turbine_with_misalignment(wind_data)
     
     misalign_pct = (df['yaw_misalignment'].abs() > 10).sum() / len(df) * 100
-    print(f"   Misalignment (>10°): {misalign_pct:.1f}% of time")
+    logger.info(f"   Misalignment (>10°): {misalign_pct:.1f}% of time")
     
     # 3. Create windows with filter values
-    print("\n3. Creating windows and computing filters...")
+    logger.info("\n3. Creating windows and computing filters...")
     windows_df = create_windows_with_filters(df, window_size=10)
     
-    print(f"   Total windows: {len(windows_df)}")
-    print(f"   Aligned: {(windows_df['label']==0).sum()}")
-    print(f"   Misaligned: {(windows_df['label']==1).sum()}")
+    logger.info(f"   Total windows: {len(windows_df)}")
+    logger.info(f"   Aligned: {(windows_df['label']==0).sum()}")
+    logger.info(f"   Misaligned: {(windows_df['label']==1).sum()}")
     
     # 4. Split data chronologically
-    print("\n4. Splitting data...")
+    logger.info("\n4. Splitting data...")
     split_idx = int(0.7 * len(windows_df))
     train_df = windows_df.iloc[:split_idx]
     test_df = windows_df.iloc[split_idx:]
@@ -429,11 +446,11 @@ def main():
     X_test = test_df[['filter1', 'filter2']].values
     y_test = test_df['label'].values
     
-    print(f"   Train: {len(X_train)} windows")
-    print(f"   Test: {len(X_test)} windows")
+    logger.info(f"   Train: {len(X_train)} windows")
+    logger.info(f"   Test: {len(X_test)} windows")
     
     # 5. Build Mapper graph
-    print("\n5. Building Mapper graph...")
+    logger.info("\n5. Building Mapper graph...")
     G = build_mapper_graph(
         X_train,
         train_df['filter1'].values,
@@ -443,12 +460,12 @@ def main():
         n_clusters=2
     )
     
-    print(f"   Nodes: {G.number_of_nodes()}")
-    print(f"   Edges: {G.number_of_edges()}")
-    print(f"   Connected components: {nx.number_connected_components(G)}")
+    logger.info(f"   Nodes: {G.number_of_nodes()}")
+    logger.info(f"   Edges: {G.number_of_edges()}")
+    logger.info(f"   Connected components: {nx.number_connected_components(G)}")
     
     # 6. Classify using Mapper
-    print("\n6. Classifying test set...")
+    logger.info("\n6. Classifying test set...")
     y_pred = classify_with_mapper(
         G, X_train, y_train, X_test,
         test_df['filter1'].values,
@@ -456,11 +473,11 @@ def main():
     )
     
     acc = accuracy_score(y_test, y_pred)
-    print(f"\n   Accuracy: {acc*100:.2f}%")
-    print(f"\n{classification_report(y_test, y_pred, target_names=['Aligned', 'Misaligned'])}")
+    logger.info(f"\n   Accuracy: {acc*100:.2f}%")
+    logger.info(f"\n{classification_report(y_test, y_pred, target_names=['Aligned', 'Misaligned'])}")
     
     # 7. Visualizations
-    print("\n7. Generating visualizations...")
+    logger.info("\n7. Generating visualizations...")
     visualize_mapper_graph(G, y_train, 'figures_yaw')
     
     # Filter space scatter
@@ -486,18 +503,18 @@ def main():
     plt.savefig('figures_yaw/filter_space.png', dpi=300, bbox_inches='tight')
     plt.close()
     
-    print("   Saved visualizations to figures_yaw/")
+    logger.info("   Saved visualizations to figures_yaw/")
     
-    print("\n" + "="*70)
-    print("YAW MISALIGNMENT DETECTION COMPLETE")
-    print("="*70)
-    print(f"\nMapper-based classification: {acc*100:.1f}% accuracy")
-    print(f"Detects misalignment without wind direction sensors")
-    print(f"Graph structure reveals:")
-    print(f"  - Aligned and misaligned operational branches")
-    print(f"  - Temporal degradation trajectories")
-    print(f"  - Misalignment mechanism signatures")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("YAW MISALIGNMENT DETECTION COMPLETE")
+    logger.info("="*70)
+    logger.info(f"\nMapper-based classification: {acc*100:.1f}% accuracy")
+    logger.info(f"Detects misalignment without wind direction sensors")
+    logger.info(f"Graph structure reveals:")
+    logger.info(f"  - Aligned and misaligned operational branches")
+    logger.info(f"  - Temporal degradation trajectories")
+    logger.info(f"  - Misalignment mechanism signatures")
+    logger.info("="*70)
 
 
 if __name__ == "__main__":
