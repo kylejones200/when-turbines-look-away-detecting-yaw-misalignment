@@ -424,108 +424,109 @@ def generate_visualizations(
     
     # 1. Model comparison
     logger.info("Creating model comparison plots")
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    if plot:
+        fig, axes = plt.subplots(1, 2, figsize=(12, 4))
     
-    model_names = list(results.keys())
-    accuracies = [results[m]['accuracy'] for m in model_names]
-    f1s = [results[m]['f1'] for m in model_names]
+        model_names = list(results.keys())
+        accuracies = [results[m]['accuracy'] for m in model_names]
+        f1s = [results[m]['f1'] for m in model_names]
     
-    axes[0].bar(range(len(model_names)), accuracies, color='#2b2b2b', alpha=0.85)
-    axes[0].set_xticks(range(len(model_names)))
-    axes[0].set_xticklabels(model_names, rotation=45, ha='right')
-    axes[0].set_ylabel('Accuracy')
-    axes[0].set_title('Yaw Misalignment Detection Accuracy')
-    axes[0].set_ylim([0, 1])
-    axes[0].spines['top'].set_visible(False)
-    axes[0].spines['right'].set_visible(False)
+        axes[0].bar(range(len(model_names)), accuracies, color='#2b2b2b', alpha=0.85)
+        axes[0].set_xticks(range(len(model_names)))
+        axes[0].set_xticklabels(model_names, rotation=45, ha='right')
+        axes[0].set_ylabel('Accuracy')
+        axes[0].set_title('Yaw Misalignment Detection Accuracy')
+        axes[0].set_ylim([0, 1])
+        axes[0].spines['top'].set_visible(False)
+        axes[0].spines['right'].set_visible(False)
     
-    axes[1].bar(range(len(model_names)), f1s, color='#d62728', alpha=0.85)
-    axes[1].set_xticks(range(len(model_names)))
-    axes[1].set_xticklabels(model_names, rotation=45, ha='right')
-    axes[1].set_ylabel('F1 Score')
-    axes[1].set_title('Yaw Misalignment Detection F1 Score')
-    axes[1].set_ylim([0, 1])
-    axes[1].spines['top'].set_visible(False)
-    axes[1].spines['right'].set_visible(False)
+        axes[1].bar(range(len(model_names)), f1s, color='#d62728', alpha=0.85)
+        axes[1].set_xticks(range(len(model_names)))
+        axes[1].set_xticklabels(model_names, rotation=45, ha='right')
+        axes[1].set_ylabel('F1 Score')
+        axes[1].set_title('Yaw Misalignment Detection F1 Score')
+        axes[1].set_ylim([0, 1])
+        axes[1].spines['top'].set_visible(False)
+        axes[1].spines['right'].set_visible(False)
     
-    plt.tight_layout()
-    plt.savefig(out_dir / "model_comparison.png", dpi=300, bbox_inches="tight")
-    plt.close()
-    logger.info("Saved model comparison to %s", out_dir / "model_comparison.png")
+        plt.tight_layout()
+        plt.savefig(out_dir / "model_comparison.png", dpi=300, bbox_inches="tight")
+        plt.close()
+        logger.info("Saved model comparison to %s", out_dir / "model_comparison.png")
     
     # 2. 3D phase space comparison
-    logger.info("Creating 3D phase space comparison plots")
-    fig = plt.figure(figsize=(14, 6))
+        logger.info("Creating 3D phase space comparison plots")
+        fig = plt.figure(figsize=(14, 6))
     
-    aligned_idx = np.where(labels == 0)[0][0]
-    misaligned_idx = np.where(labels == 1)[0][0]
+        aligned_idx = np.where(labels == 0)[0][0]
+        misaligned_idx = np.where(labels == 1)[0][0]
     
-    aligned_window = windows[aligned_idx]
-    misaligned_window = windows[misaligned_idx]
+        aligned_window = windows[aligned_idx]
+        misaligned_window = windows[misaligned_idx]
     
-    ax1 = fig.add_subplot(121, projection='3d')
-    ax1.scatter(aligned_window['windspeed_80m'], aligned_window['power'], 
-               aligned_window['rotor_speed'], alpha=0.5, s=10, color='#696969')
-    ax1.set_xlabel('Wind Speed (m/s)')
-    ax1.set_ylabel('Power (MW)')
-    ax1.set_zlabel('Rotor Speed (RPM)')
-    ax1.set_title('Aligned Turbine (compact structure', fontweight='normal)')
+        ax1 = fig.add_subplot(121, projection='3d')
+        ax1.scatter(aligned_window['windspeed_80m'], aligned_window['power'], 
+                   aligned_window['rotor_speed'], alpha=0.5, s=10, color='#696969')
+        ax1.set_xlabel('Wind Speed (m/s)')
+        ax1.set_ylabel('Power (MW)')
+        ax1.set_zlabel('Rotor Speed (RPM)')
+        ax1.set_title('Aligned Turbine (compact structure', fontweight='normal)')
     
-    ax2 = fig.add_subplot(122, projection='3d')
-    ax2.scatter(misaligned_window['windspeed_80m'], misaligned_window['power'], 
-               misaligned_window['rotor_speed'], alpha=0.5, s=10, color='#d62728')
-    ax2.set_xlabel('Wind Speed (m/s)')
-    ax2.set_ylabel('Power (MW)')
-    ax2.set_zlabel('Rotor Speed (RPM)')
-    ax2.set_title('Misaligned Turbine (void structure', fontweight='normal)')
+        ax2 = fig.add_subplot(122, projection='3d')
+        ax2.scatter(misaligned_window['windspeed_80m'], misaligned_window['power'], 
+                   misaligned_window['rotor_speed'], alpha=0.5, s=10, color='#d62728')
+        ax2.set_xlabel('Wind Speed (m/s)')
+        ax2.set_ylabel('Power (MW)')
+        ax2.set_zlabel('Rotor Speed (RPM)')
+        ax2.set_title('Misaligned Turbine (void structure', fontweight='normal)')
     
-    plt.tight_layout()
-    plt.savefig(out_dir / "3d_phase_space.png", dpi=300, bbox_inches="tight")
-    plt.close()
-    logger.info("Saved 3D phase space comparison to %s", out_dir / "3d_phase_space.png")
+        plt.tight_layout()
+        plt.savefig(out_dir / "3d_phase_space.png", dpi=300, bbox_inches="tight")
+        plt.close()
+        logger.info("Saved 3D phase space comparison to %s", out_dir / "3d_phase_space.png")
     
     # 3. H2 feature distributions
-    logger.info("Creating H2 feature distribution plots")
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+        logger.info("Creating H2 feature distribution plots")
+        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
     
-    h2_features = ['H2_count', 'H2_max_lifetime', 'H2_sum_lifetime', 'H2_mean_birth']
+        h2_features = ['H2_count', 'H2_max_lifetime', 'H2_sum_lifetime', 'H2_mean_birth']
     
-    for ax, feature in zip(axes.flatten(), h2_features):
-        aligned_values = X[y == 0][feature]
-        misaligned_values = X[y == 1][feature]
+        for ax, feature in zip(axes.flatten(), h2_features):
+            aligned_values = X[y == 0][feature]
+            misaligned_values = X[y == 1][feature]
         
-        ax.hist(aligned_values, bins=20, alpha=0.6, label='Aligned', color='#696969', edgecolor='#2b2b2b')
-        ax.hist(misaligned_values, bins=20, alpha=0.6, label='Misaligned', color='#d62728', edgecolor='#2b2b2b')
-        ax.set_xlabel(feature)
-        ax.set_ylabel('Count')
-        ax.set_title(f'Distribution: {feature}')
-        ax.legend(frameon=False)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+            ax.hist(aligned_values, bins=20, alpha=0.6, label='Aligned', color='#696969', edgecolor='#2b2b2b')
+            ax.hist(misaligned_values, bins=20, alpha=0.6, label='Misaligned', color='#d62728', edgecolor='#2b2b2b')
+            ax.set_xlabel(feature)
+            ax.set_ylabel('Count')
+            ax.set_title(f'Distribution: {feature}')
+            ax.legend(frameon=False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
     
-    plt.tight_layout()
-    plt.savefig(out_dir / "h2_distributions.png", dpi=300, bbox_inches="tight")
-    plt.close()
-    logger.info("Saved H2 distributions to %s", out_dir / "h2_distributions.png")
+        plt.tight_layout()
+        plt.savefig(out_dir / "h2_distributions.png", dpi=300, bbox_inches="tight")
+        plt.close()
+        logger.info("Saved H2 distributions to %s", out_dir / "h2_distributions.png")
     
     # 4. Feature importance
-    logger.info("Creating feature importance plot for Random Forest")
-    if 'Random Forest' in results:
-        rf_model = results['Random Forest']['model']
-        importances = rf_model.feature_importances_
-        indices = np.argsort(importances)[::-1][:10]
+        logger.info("Creating feature importance plot for Random Forest")
+        if 'Random Forest' in results:
+            rf_model = results['Random Forest']['model']
+            importances = rf_model.feature_importances_
+            indices = np.argsort(importances)[::-1][:10]
         
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.bar(range(len(indices)), importances[indices], color='#2b2b2b', alpha=0.85)
-        ax.set_xticks(range(len(indices)))
-        ax.set_xticklabels([X.columns[i] for i in indices], rotation=45, ha='right')
-        ax.set_ylabel('Importance')
-        ax.set_title('Top 10 Feature Importances (Random Forest)')
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        plt.tight_layout()
-        plt.savefig(out_dir / "feature_importance.png", dpi=300, bbox_inches="tight")
-        plt.close()
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.bar(range(len(indices)), importances[indices], color='#2b2b2b', alpha=0.85)
+            ax.set_xticks(range(len(indices)))
+            ax.set_xticklabels([X.columns[i] for i in indices], rotation=45, ha='right')
+            ax.set_ylabel('Importance')
+            ax.set_title('Top 10 Feature Importances (Random Forest)')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            plt.tight_layout()
+            plt.savefig(out_dir / "feature_importance.png", dpi=300, bbox_inches="tight")
+            plt.close()
         logger.info("Saved feature importance to %s", out_dir / "feature_importance.png")
 
     logger.info("All visualizations generated successfully")

@@ -355,7 +355,7 @@ def classify_with_mapper(G, X_train, y_train, X_test, filter1_test, filter2_test
     return np.array(predictions)
 
 
-def visualize_mapper_graph(G, y_labels, out_dir):
+def visualize_mapper_graph(G, y_labels, out_dir, plot: bool = False):
     """Visualize Mapper graph with node colors by label."""
     out_dir = Path(out_dir)
     out_dir.mkdir(exist_ok=True)
@@ -380,32 +380,33 @@ def visualize_mapper_graph(G, y_labels, out_dir):
     pos = nx.spring_layout(G, k=0.5, iterations=50, seed=42)
     
     # Plot
-    fig, ax = plt.subplots(figsize=tuple(config.get('output', {}).get('figsize', [12, 10])))
+    if plot:
+        fig, ax = plt.subplots(figsize=tuple(config.get('output', {}).get('figsize', [12, 10])))
     
-    nx.draw_networkx_edges(G, pos, alpha=0.3, width=1)
-    nx.draw_networkx_nodes(G, pos, node_color=node_colors, 
-                          node_size=node_sizes, alpha=0.85,
-                          edgecolors='black', linewidths=1)
+        nx.draw_networkx_edges(G, pos, alpha=0.3, width=1)
+        nx.draw_networkx_nodes(G, pos, node_color=node_colors, 
+                              node_size=node_sizes, alpha=0.85,
+                              edgecolors='black', linewidths=1)
     
-    ax.set_title('Mapper Graph: Yaw Misalignment Detection', 
-                fontsize=14, fontweight='normal')
-    ax.axis('off')
+        ax.set_title('Mapper Graph: Yaw Misalignment Detection', 
+                    fontsize=14, fontweight='normal')
+        ax.axis('off')
     
     # Legend
-    from matplotlib.patches import Patch
-    legend_elements = [
-        Patch(facecolor='green', label='Aligned'),
-        Patch(facecolor='#d62728', label='Misaligned'),
-        Patch(facecolor='yellow', label='Mixed')
-    ]
-    ax.legend(frameon=False, handles=legend_elements, loc='upper right', fontsize=11)
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor='green', label='Aligned'),
+            Patch(facecolor='#d62728', label='Misaligned'),
+            Patch(facecolor='yellow', label='Mixed')
+        ]
+        ax.legend(frameon=False, handles=legend_elements, loc='upper right', fontsize=11)
     
-    plt.tight_layout()
-    plt.savefig(out_dir / 'mapper_graph.png', dpi=300, bbox_inches='tight')
-    plt.close()
+        plt.tight_layout()
+        plt.savefig(out_dir / 'mapper_graph.png', dpi=300, bbox_inches='tight')
+        plt.close()
 
 
-def main():
+def main(plot: bool = False):
     np.random.seed(config.get('data', {}).get('seed', 42))
     
     logger.info("="*70)
@@ -481,27 +482,28 @@ def main():
     visualize_mapper_graph(G, y_train, 'figures_yaw')
     
     # Filter space scatter
-    fig, ax = plt.subplots(figsize=(10, 8))
+    if plot:
+        fig, ax = plt.subplots(figsize=(10, 8))
     
-    aligned_mask = y_test == 0
-    misaligned_mask = y_test == 1
+        aligned_mask = y_test == 0
+        misaligned_mask = y_test == 1
     
-    ax.scatter(X_test[aligned_mask, 0], X_test[aligned_mask, 1],
-              c='green', alpha=0.5, s=30, label='Aligned', edgecolors='black', linewidths=0.5)
-    ax.scatter(X_test[misaligned_mask, 0], X_test[misaligned_mask, 1],
-              c='red', alpha=0.5, s=30, label='Misaligned', edgecolors='black', linewidths=0.5)
+        ax.scatter(X_test[aligned_mask, 0], X_test[aligned_mask, 1],
+                  c='green', alpha=0.5, s=30, label='Aligned', edgecolors='black', linewidths=0.5)
+        ax.scatter(X_test[misaligned_mask, 0], X_test[misaligned_mask, 1],
+                  c='red', alpha=0.5, s=30, label='Misaligned', edgecolors='black', linewidths=0.5)
     
-    ax.set_xlabel('Filter 1: Power Ratio', fontsize=11)
-    ax.set_ylabel('Filter 2: Rotor Speed Variability', fontsize=11)
-    ax.set_title('Filter Space: Aligned vs Misaligned Operation', fontsize=12, fontweight='normal')
-    ax.legend(frameon=False, fontsize=10)
+        ax.set_xlabel('Filter 1: Power Ratio', fontsize=11)
+        ax.set_ylabel('Filter 2: Rotor Speed Variability', fontsize=11)
+        ax.set_title('Filter Space: Aligned vs Misaligned Operation', fontsize=12, fontweight='normal')
+        ax.legend(frameon=False, fontsize=10)
     
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
     
-    plt.tight_layout()
-    plt.savefig('figures_yaw/filter_space.png', dpi=300, bbox_inches='tight')
-    plt.close()
+        plt.tight_layout()
+        plt.savefig('figures_yaw/filter_space.png', dpi=300, bbox_inches='tight')
+        plt.close()
     
     logger.info("   Saved visualizations to figures_yaw/")
     

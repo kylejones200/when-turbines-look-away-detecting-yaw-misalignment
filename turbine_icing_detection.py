@@ -345,7 +345,7 @@ def train_and_evaluate_models(X, y):
     
     return results
 
-def generate_visualizations(windows, labels, X, y, results, out_dir):
+def generate_visualizations(windows, labels, X, y, results, out_dir, plot: bool = False):
     """Generate comprehensive visualizations."""
     logger.info("\n" + "="*60)
     logger.info("GENERATING VISUALIZATIONS")
@@ -356,103 +356,104 @@ def generate_visualizations(windows, labels, X, y, results, out_dir):
     
     # 1. Model comparison
     logger.info("\n1. Model comparison...")
-    fig, axes = plt.subplots(1, 2, figsize=tuple(config.get('output', {}).get('figsize', [12, 4])))
+    if plot:
+        fig, axes = plt.subplots(1, 2, figsize=tuple(config.get('output', {}).get('figsize', [12, 4])))
     
-    model_names = list(results.keys())
-    accuracies = [results[m]['accuracy'] for m in model_names]
-    f1s = [results[m]['f1'] for m in model_names]
+        model_names = list(results.keys())
+        accuracies = [results[m]['accuracy'] for m in model_names]
+        f1s = [results[m]['f1'] for m in model_names]
     
-    axes[0].bar(range(len(model_names)), accuracies, color='#2b2b2b', alpha=0.85)
-    axes[0].set_xticks(range(len(model_names)))
-    axes[0].set_xticklabels(model_names, rotation=45, ha='right')
-    axes[0].set_ylabel('Accuracy')
-    axes[0].set_title('Icing Detection Accuracy')
-    axes[0].set_ylim([0, 1])
-    axes[0].spines['top'].set_visible(False)
-    axes[0].spines['right'].set_visible(False)
+        axes[0].bar(range(len(model_names)), accuracies, color='#2b2b2b', alpha=0.85)
+        axes[0].set_xticks(range(len(model_names)))
+        axes[0].set_xticklabels(model_names, rotation=45, ha='right')
+        axes[0].set_ylabel('Accuracy')
+        axes[0].set_title('Icing Detection Accuracy')
+        axes[0].set_ylim([0, 1])
+        axes[0].spines['top'].set_visible(False)
+        axes[0].spines['right'].set_visible(False)
     
-    axes[1].bar(range(len(model_names)), f1s, color='#d62728', alpha=0.85)
-    axes[1].set_xticks(range(len(model_names)))
-    axes[1].set_xticklabels(model_names, rotation=45, ha='right')
-    axes[1].set_ylabel('F1 Score')
-    axes[1].set_title('Icing Detection F1 Score')
-    axes[1].set_ylim([0, 1])
-    axes[1].spines['top'].set_visible(False)
-    axes[1].spines['right'].set_visible(False)
+        axes[1].bar(range(len(model_names)), f1s, color='#d62728', alpha=0.85)
+        axes[1].set_xticks(range(len(model_names)))
+        axes[1].set_xticklabels(model_names, rotation=45, ha='right')
+        axes[1].set_ylabel('F1 Score')
+        axes[1].set_title('Icing Detection F1 Score')
+        axes[1].set_ylim([0, 1])
+        axes[1].spines['top'].set_visible(False)
+        axes[1].spines['right'].set_visible(False)
     
-    plt.tight_layout()
-    plt.savefig(out_dir / "model_comparison.png", dpi=300, bbox_inches='tight')
-    plt.close()
-    logger.info(f"  Saved: model_comparison.png")
+        plt.tight_layout()
+        plt.savefig(out_dir / "model_comparison.png", dpi=300, bbox_inches='tight')
+        plt.close()
+        logger.info(f"  Saved: model_comparison.png")
     
     # 2. Temperature vs power scatter (icing vs no-icing)
-    logger.info("2. Temperature-power relationship...")
-    icing_idx = np.where(labels == 1)[0][0]
-    no_icing_idx = np.where(labels == 0)[0][0]
+        logger.info("2. Temperature-power relationship...")
+        icing_idx = np.where(labels == 1)[0][0]
+        no_icing_idx = np.where(labels == 0)[0][0]
     
-    icing_window = windows[icing_idx]
-    no_icing_window = windows[no_icing_idx]
+        icing_window = windows[icing_idx]
+        no_icing_window = windows[no_icing_idx]
     
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     
-    axes[0].scatter(no_icing_window['temperature'], no_icing_window['power'],
-                   alpha=0.5, s=20, color='#696969', edgecolors='#2b2b2b', linewidth=0.5)
-    axes[0].set_xlabel('Temperature (°C)')
-    axes[0].set_ylabel('Power (MW)')
-    axes[0].set_title('No Icing (normal operation)')
+        axes[0].scatter(no_icing_window['temperature'], no_icing_window['power'],
+                       alpha=0.5, s=20, color='#696969', edgecolors='#2b2b2b', linewidth=0.5)
+        axes[0].set_xlabel('Temperature (°C)')
+        axes[0].set_ylabel('Power (MW)')
+        axes[0].set_title('No Icing (normal operation)')
     
-    axes[1].scatter(icing_window['temperature'], icing_window['power'],
-                   alpha=0.5, s=20, color='#d62728', edgecolors='#8b0000', linewidth=0.5)
-    axes[1].set_xlabel('Temperature (°C)')
-    axes[1].set_ylabel('Power (MW)')
-    axes[1].set_title('Icing Event (reduced power', fontweight='normal)')
+        axes[1].scatter(icing_window['temperature'], icing_window['power'],
+                       alpha=0.5, s=20, color='#d62728', edgecolors='#8b0000', linewidth=0.5)
+        axes[1].set_xlabel('Temperature (°C)')
+        axes[1].set_ylabel('Power (MW)')
+        axes[1].set_title('Icing Event (reduced power', fontweight='normal)')
     
-    plt.tight_layout()
-    plt.savefig(out_dir / "temperature_power.png", dpi=300, bbox_inches='tight')
-    plt.close()
-    logger.info(f"  Saved: temperature_power.png")
+        plt.tight_layout()
+        plt.savefig(out_dir / "temperature_power.png", dpi=300, bbox_inches='tight')
+        plt.close()
+        logger.info(f"  Saved: temperature_power.png")
     
     # 3. Multi-parameter feature distributions
-    logger.info("3. Multi-parameter feature distributions...")
-    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+        logger.info("3. Multi-parameter feature distributions...")
+        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
     
-    mp_features = ['temp0_H1_max', 'temp1_H1_max', 'time0_H1_max', 'time1_H1_max']
+        mp_features = ['temp0_H1_max', 'temp1_H1_max', 'time0_H1_max', 'time1_H1_max']
     
-    for ax, feature in zip(axes.flatten(), mp_features):
-        if feature in X.columns:
-            no_ice_values = X[y == 0][feature]
-            ice_values = X[y == 1][feature]
+        for ax, feature in zip(axes.flatten(), mp_features):
+            if feature in X.columns:
+                no_ice_values = X[y == 0][feature]
+                ice_values = X[y == 1][feature]
             
-            ax.hist(no_ice_values, bins=20, alpha=0.6, label='No Icing', color='#696969', edgecolor='#2b2b2b')
-            ax.hist(ice_values, bins=20, alpha=0.6, label='Icing', color='#d62728', edgecolor='#2b2b2b')
-            ax.set_xlabel(feature)
-            ax.set_ylabel('Count')
-            ax.set_title(f'Distribution: {feature}')
-            ax.legend(frameon=False)
+                ax.hist(no_ice_values, bins=20, alpha=0.6, label='No Icing', color='#696969', edgecolor='#2b2b2b')
+                ax.hist(ice_values, bins=20, alpha=0.6, label='Icing', color='#d62728', edgecolor='#2b2b2b')
+                ax.set_xlabel(feature)
+                ax.set_ylabel('Count')
+                ax.set_title(f'Distribution: {feature}')
+                ax.legend(frameon=False)
     
-    plt.tight_layout()
-    plt.savefig(out_dir / "multiparam_distributions.png", dpi=300, bbox_inches='tight')
-    plt.close()
-    logger.info(f"  Saved: multiparam_distributions.png")
+        plt.tight_layout()
+        plt.savefig(out_dir / "multiparam_distributions.png", dpi=300, bbox_inches='tight')
+        plt.close()
+        logger.info(f"  Saved: multiparam_distributions.png")
     
     # 4. Feature importance
-    logger.info("4. Feature importance...")
-    if 'Random Forest' in results:
-        rf_model = results['Random Forest']['model']
-        importances = rf_model.feature_importances_
-        indices = np.argsort(importances)[::-1][:10]
+        logger.info("4. Feature importance...")
+        if 'Random Forest' in results:
+            rf_model = results['Random Forest']['model']
+            importances = rf_model.feature_importances_
+            indices = np.argsort(importances)[::-1][:10]
         
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.bar(range(len(indices)), importances[indices], color='#2b2b2b', alpha=0.85)
-        ax.set_xticks(range(len(indices)))
-        ax.set_xticklabels([X.columns[i] for i in indices], rotation=45, ha='right')
-        ax.set_ylabel('Importance')
-        ax.set_title('Top 10 Feature Importances (Random Forest)')
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        plt.tight_layout()
-        plt.savefig(out_dir / "feature_importance.png", dpi=300, bbox_inches='tight')
-        plt.close()
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.bar(range(len(indices)), importances[indices], color='#2b2b2b', alpha=0.85)
+            ax.set_xticks(range(len(indices)))
+            ax.set_xticklabels([X.columns[i] for i in indices], rotation=45, ha='right')
+            ax.set_ylabel('Importance')
+            ax.set_title('Top 10 Feature Importances (Random Forest)')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            plt.tight_layout()
+            plt.savefig(out_dir / "feature_importance.png", dpi=300, bbox_inches='tight')
+            plt.close()
         logger.info(f"  Saved: feature_importance.png")
     
     logger.info("\nAll visualizations generated successfully!")
