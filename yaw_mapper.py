@@ -73,26 +73,26 @@ def fetch_nrel_wind_data(config=None):
         try:
             response = requests.get(NREL_API_URL, params=params, timeout=120)
             response.raise_for_status()
-            
-            lines = response.text.strip().split('\n')
-            data_start = 0
-            for i, line in enumerate(lines):
-                if line.startswith('Year,'):
-                    data_start = i + 1
-                    break
-            
-            data_text = '\n'.join(lines[data_start:])
-            df_year = pd.read_csv(StringIO(data_text), header=None,
-                           names=['Year', 'Month', 'Day', 'Hour', 'Minute',
-                                  'windspeed_100m', 'winddirection_100m', 'temperature_100m'])
-            
-            df_year['time'] = pd.to_datetime(df_year[['Year', 'Month', 'Day', 'Hour', 'Minute']])
-            all_data.append(df_year)
-            logger.info(f"     ✓ Fetched {len(df_year):,} records")
-            
-        except Exception as e:
-            logger.error(f"     ✗ Error: {e}")
+        except requests.RequestException as e:
+            logger.warning("Year %s fetch failed: %s", year, e)
             continue
+        
+        lines = response.text.strip().split('\n')
+        data_start = 0
+        for i, line in enumerate(lines):
+            if line.startswith('Year,'):
+                data_start = i + 1
+                break
+        
+        data_text = '\n'.join(lines[data_start:])
+        df_year = pd.read_csv(StringIO(data_text), header=None,
+                       names=['Year', 'Month', 'Day', 'Hour', 'Minute',
+                              'windspeed_100m', 'winddirection_100m', 'temperature_100m'])
+        
+        df_year['time'] = pd.to_datetime(df_year[['Year', 'Month', 'Day', 'Hour', 'Minute']])
+        all_data.append(df_year)
+        logger.info(f"     ✓ Fetched {len(df_year):,} records")
+        
     
     if not all_data:
         return None
