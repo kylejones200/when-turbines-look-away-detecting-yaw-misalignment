@@ -29,9 +29,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 
-import warnings
 
-warnings.filterwarnings("ignore")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(

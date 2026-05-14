@@ -17,7 +17,6 @@ from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
 import networkx as nx
 import matplotlib.pyplot as plt
 from scipy.spatial import distance_matrix
-import warnings
 import logging
 import yaml
 
@@ -36,7 +35,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 config = load_config()
-warnings.filterwarnings('ignore')
 
 # Configuration
 NREL_API_KEY = os.getenv("NREL_API_KEY", "")

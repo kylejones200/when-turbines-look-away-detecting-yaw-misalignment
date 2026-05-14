@@ -14,7 +14,6 @@ from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report, f1_score, roc_auc_score
 from pathlib import Path
-import warnings
 import logging
 import yaml
 
@@ -33,7 +32,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-warnings.filterwarnings('ignore')
 
 np.random.seed(config.get('data', {}).get('seed', 42))
 
