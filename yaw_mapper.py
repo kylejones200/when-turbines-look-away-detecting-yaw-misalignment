@@ -3,6 +3,7 @@ Yaw Misalignment Detection Using Mapper
 Detects misalignment from operational patterns without wind direction sensors
 """
 
+import os
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore')
 
 # Configuration
-NREL_API_KEY = "key"
+NREL_API_KEY = os.getenv("NREL_API_KEY", "")
 NREL_API_URL = "https://developer.nrel.gov/api/wind-toolkit/v2/wind/wtk-bchrrr-v1-0-0-download.csv"
 
 
