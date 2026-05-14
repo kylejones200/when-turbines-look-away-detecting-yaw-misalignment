@@ -4,6 +4,7 @@ Detects misalignment from operational patterns without wind direction sensors
 """
 
 import os
+import bisect
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -99,6 +100,16 @@ def fetch_nrel_wind_data(config=None):
     return pd.concat(all_data, ignore_index=True).sort_values('time')
 
 
+
+_REGIME_CUTS = [3, 12]
+
+def _turbine_state(w_eff: float, rated_power: float) -> tuple[float, float]:
+    """Return (target_power, target_rpm) for effective wind speed."""
+    match bisect.bisect_right(_REGIME_CUTS, w_eff):
+        case 0: return 0.0,                                   0.0
+        case 1: return rated_power * ((w_eff-3)/9)**2.5,      10 + (w_eff-3)*5
+        case _: return rated_power,                           55 + (w_eff-12)*0.2
+
 def simulate_turbine_with_misalignment(wind_df, rated_power=2000):
     """
     Simulate turbine with periodic yaw misalignment.
@@ -146,15 +157,7 @@ def simulate_turbine_with_misalignment(wind_df, rated_power=2000):
         w_eff = w * np.cos(np.radians(misalign))
         
         # Power curve based on effective wind
-        if w_eff < 3:
-            target_power = 0
-            target_rpm = 0
-        elif w_eff < 12:
-            target_power = rated_power * ((w_eff - 3) / (12 - 3)) ** 2.5
-            target_rpm = 10 + (w_eff - 3) * 5
-        else:
-            target_power = rated_power
-            target_rpm = 55 + (w_eff - 12) * 0.2
+        target_power, target_rpm = _turbine_state(w_eff, rated_power)
         
         # Add variability from misalignment (asymmetric loading)
         variability_factor = 1 + np.abs(misalign) * 0.02
