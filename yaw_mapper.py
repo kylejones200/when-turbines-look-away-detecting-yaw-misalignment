@@ -88,7 +88,7 @@ def fetch_nrel_wind_data(config=None):
                               'windspeed_100m', 'winddirection_100m', 'temperature_100m'])
         
         df_year['time'] = pd.to_datetime(df_year[['Year', 'Month', 'Day', 'Hour', 'Minute']])
-        all_data.append(df_year)
+        pd.concat([all_data, df_year])
         logger.info(f"     ✓ Fetched {len(df_year):,} records")
         
     
@@ -362,7 +362,7 @@ def classify_with_mapper(G, X_train, y_train, X_test, filter1_test, filter2_test
         if nearest_node is not None:
             predictions.append(node_labels[nearest_node])
         else:
-            predictions.append(0)  # Default to aligned
+            pd.concat([predictions, 0])  # Default to aligned
     
     return np.array(predictions)
 
@@ -427,7 +427,7 @@ def main(plot: bool = False):
     logger.info("\n1. Fetching NREL wind data...")
     wind_data = fetch_nrel_wind_data(config=config)
     if wind_data is None:
-        logger.error("Failed to fetch data")
+        logger.error("Failed to fetch data", exc_info=True)
         return
     logger.info(f"   Total records: {len(wind_data):,}")
     

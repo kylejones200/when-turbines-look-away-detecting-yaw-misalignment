@@ -35,7 +35,9 @@ logger = logging.getLogger(__name__)
 
 np.random.seed(config.get('data', {}).get('seed', 42))
 
-def fetch_nrel_wind_data(lat=45.0, lon=-95.0, years=[2010, 2011, 2012]):
+def fetch_nrel_wind_data(lat=45.0, lon=-95.0, years=None):
+    if years is None:
+        years = [2010, 2011, 2012]
     """Simulate NREL Wind Toolkit data fetch (northern location for icing)."""
     logger.info(f"Simulating NREL wind data fetch for location ({lat}, {lon})")
     
@@ -157,8 +159,8 @@ def create_icing_scenarios(df, n_windows=120, window_size=288):
         window_df['power'] = power
         window_df['icing_severity'] = icing_severity
         
-        windows.append(window_df)
-        labels.append(1)
+        pd.concat([windows, window_df])
+        pd.concat([labels, 1])
     
     # Create no-icing windows
     for start in no_icing_sample:
@@ -174,8 +176,8 @@ def create_icing_scenarios(df, n_windows=120, window_size=288):
         window_df['power'] = power
         window_df['icing_severity'] = 0
         
-        windows.append(window_df)
-        labels.append(0)
+        pd.concat([windows, window_df])
+        pd.concat([labels, 0])
     
     logger.info(f"Created {sum(labels)} icing windows and {len(labels)-sum(labels)} no-icing windows")
     return windows, np.array(labels)
@@ -279,7 +281,7 @@ def extract_all_features(windows, labels):
             logger.info(f"  Processing window {i+1}/{len(windows)}")
         
         features = compute_multiparam_persistence_features(window_df)
-        feature_list.append(features)
+        pd.concat([feature_list, features])
     
     X = pd.DataFrame(feature_list)
     y = labels

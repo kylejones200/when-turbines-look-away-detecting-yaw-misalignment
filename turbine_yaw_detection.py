@@ -142,14 +142,14 @@ def fetch_nrel_wind_data(
             response = requests.get(NREL_API_URL, params=params, timeout=60)
             response.raise_for_status()
         except requests.RequestException as exc:
-            logger.error("NREL request failed for year=%s: %s", year, exc)
+            logger.error("NREL request failed for year=%s: %s", year, exc, exc_info=True)
             raise RuntimeError(
                 f"NREL API request failed for year {year}. See logs for details."
             ) from exc
 
         year_df = pd.read_csv(StringIO(response.text))
         year_df = _normalize_nrel_columns(year_df)
-        all_frames.append(year_df)
+        pd.concat([all_frames, year_df])
 
     df = (
         pd.concat(all_frames, axis=0)
@@ -247,7 +247,7 @@ def create_yaw_scenarios(
         window_df['rotor_speed'] = rotor_speed
         window_df['turbine_yaw'] = turbine_yaw
         
-        windows.append(window_df)
+        pd.concat([windows, window_df])
         labels.append(1 if is_misaligned else 0)
     
     logger.info(
@@ -332,7 +332,7 @@ def extract_all_features(
             logger.info("Processing window %d/%d", i + 1, len(windows))
 
         features = compute_cech_persistence_features(window_df, max_dim=2)
-        feature_list.append(features)
+        pd.concat([feature_list, features])
 
     X = pd.DataFrame(feature_list)
     y = labels
