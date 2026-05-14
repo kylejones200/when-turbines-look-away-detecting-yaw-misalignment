@@ -355,9 +355,7 @@ def train_and_evaluate_models(
     X: pd.DataFrame, y: np.ndarray
 ) -> Tuple[Dict[str, Dict[str, Any]], pd.DataFrame, np.ndarray]:
     """Train and evaluate classifiers."""
-    logger.info("=" * 60)
     logger.info("TRAINING AND EVALUATION")
-    logger.info("=" * 60)
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.3, random_state=42, stratify=y
@@ -415,9 +413,7 @@ def generate_visualizations(
     out_dir: Path | str,
 ) -> None:
     """Generate and save all yaw misalignment visualizations."""
-    logger.info("=" * 60)
     logger.info("GENERATING VISUALIZATIONS")
-    logger.info("=" * 60)
 
     out_dir = Path(out_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
@@ -533,9 +529,7 @@ def generate_visualizations(
 
 def main() -> None:
     """Main execution."""
-    logger.info("=" * 60)
     logger.info("YAW MISALIGNMENT DETECTION USING ČECH PERSISTENCE")
-    logger.info("=" * 60)
 
     df = fetch_nrel_wind_data()
     windows, labels = create_yaw_scenarios(df, n_windows=120, window_size=288)
@@ -545,9 +539,7 @@ def main() -> None:
     out_dir = Path(__file__).parent / "figures_yaw"
     generate_visualizations(windows, labels, X, y, results, out_dir)
 
-    logger.info("=" * 60)
     logger.info("FINAL SUMMARY")
-    logger.info("=" * 60)
     best_model_name = max(results.keys(), key=lambda k: results[k]["accuracy"])
     best_result = results[best_model_name]
     logger.info(

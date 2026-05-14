@@ -423,9 +423,7 @@ def visualize_mapper_graph(G, y_labels, out_dir, plot: bool = False):
 def main(plot: bool = False):
     np.random.seed(config.get('data', {}).get('seed', 42))
     
-    logger.info("="*70)
     logger.info("Yaw Misalignment Detection Using Mapper")
-    logger.info("="*70)
     
     # 1. Fetch wind data
     logger.info("\n1. Fetching NREL wind data...")
@@ -521,16 +519,13 @@ def main(plot: bool = False):
     
     logger.info("   Saved visualizations to figures_yaw/")
     
-    logger.info("\n" + "="*70)
-    logger.info("YAW MISALIGNMENT DETECTION COMPLETE")
-    logger.info("="*70)
+    logger.info("=== YAW MISALIGNMENT DETECTION COMPLETE ===")
     logger.info(f"\nMapper-based classification: {acc*100:.1f}% accuracy")
     logger.info(f"Detects misalignment without wind direction sensors")
     logger.info(f"Graph structure reveals:")
     logger.info(f"  - Aligned and misaligned operational branches")
     logger.info(f"  - Temporal degradation trajectories")
     logger.info(f"  - Misalignment mechanism signatures")
-    logger.info("="*70)
 
 
 if __name__ == "__main__":
