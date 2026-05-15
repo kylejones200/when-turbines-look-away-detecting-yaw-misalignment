@@ -37,7 +37,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
-np.random.seed(42)
 
 # NREL API configuration (real data)
 NREL_API_URL = (
@@ -526,6 +525,7 @@ def generate_visualizations(
     logger.info("All visualizations generated successfully")
 
 def main() -> None:
+    np.random.seed(42)
     """Main execution."""
     logger.info("YAW MISALIGNMENT DETECTION USING ČECH PERSISTENCE")
 

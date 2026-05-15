@@ -5,12 +5,12 @@ import matplotlib.animation as animation
 from matplotlib.gridspec import GridSpec
 
 import logging
+np.random.seed(42)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-np.random.seed(42)
 FPS, N_FRAMES = 10, 100
 n_samples = 400
 

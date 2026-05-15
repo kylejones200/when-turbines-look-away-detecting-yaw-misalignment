@@ -33,7 +33,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-np.random.seed(config.get('data', {}).get('seed', 42))
+np.random.seed(42)
 
 def fetch_nrel_wind_data(lat=45.0, lon=-95.0, years=None):
     if years is None:
