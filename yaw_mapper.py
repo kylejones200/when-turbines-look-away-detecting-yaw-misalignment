@@ -11,14 +11,11 @@ from pathlib import Path
 import requests
 from io import StringIO
 
-from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
-from sklearn.metrics import accuracy_score, classification_report, roc_auc_score
+from sklearn.metrics import accuracy_score, classification_report
 import networkx as nx
 import matplotlib.pyplot as plt
-from scipy.spatial import distance_matrix
 import logging
-import yaml
 
 def load_config(config_path=None):
     """Load configuration from YAML file."""
@@ -519,11 +516,11 @@ def main(plot: bool = False):
     
     logger.info("=== YAW MISALIGNMENT DETECTION COMPLETE ===")
     logger.info(f"\nMapper-based classification: {acc*100:.1f}% accuracy")
-    logger.info(f"Detects misalignment without wind direction sensors")
-    logger.info(f"Graph structure reveals:")
-    logger.info(f"  - Aligned and misaligned operational branches")
-    logger.info(f"  - Temporal degradation trajectories")
-    logger.info(f"  - Misalignment mechanism signatures")
+    logger.info("Detects misalignment without wind direction sensors")
+    logger.info("Graph structure reveals:")
+    logger.info("  - Aligned and misaligned operational branches")
+    logger.info("  - Temporal degradation trajectories")
+    logger.info("  - Misalignment mechanism signatures")
 
 
 if __name__ == "__main__":

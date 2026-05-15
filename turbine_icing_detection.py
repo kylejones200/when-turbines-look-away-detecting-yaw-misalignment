@@ -12,10 +12,9 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report, f1_score, roc_auc_score
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from pathlib import Path
 import logging
-import yaml
 
 def load_config(config_path=None):
     """Load configuration from YAML file."""
@@ -380,7 +379,7 @@ def generate_visualizations(windows, labels, X, y, results, out_dir, plot: bool 
         plt.tight_layout()
         plt.savefig(out_dir / "model_comparison.png", dpi=300, bbox_inches='tight')
         plt.close()
-        logger.info(f"  Saved: model_comparison.png")
+        logger.info("  Saved: model_comparison.png")
     
     # 2. Temperature vs power scatter (icing vs no-icing)
         logger.info("2. Temperature-power relationship...")
@@ -407,7 +406,7 @@ def generate_visualizations(windows, labels, X, y, results, out_dir, plot: bool 
         plt.tight_layout()
         plt.savefig(out_dir / "temperature_power.png", dpi=300, bbox_inches='tight')
         plt.close()
-        logger.info(f"  Saved: temperature_power.png")
+        logger.info("  Saved: temperature_power.png")
     
     # 3. Multi-parameter feature distributions
         logger.info("3. Multi-parameter feature distributions...")
@@ -430,7 +429,7 @@ def generate_visualizations(windows, labels, X, y, results, out_dir, plot: bool 
         plt.tight_layout()
         plt.savefig(out_dir / "multiparam_distributions.png", dpi=300, bbox_inches='tight')
         plt.close()
-        logger.info(f"  Saved: multiparam_distributions.png")
+        logger.info("  Saved: multiparam_distributions.png")
     
     # 4. Feature importance
         logger.info("4. Feature importance...")
@@ -450,7 +449,7 @@ def generate_visualizations(windows, labels, X, y, results, out_dir, plot: bool 
             plt.tight_layout()
             plt.savefig(out_dir / "feature_importance.png", dpi=300, bbox_inches='tight')
             plt.close()
-        logger.info(f"  Saved: feature_importance.png")
+        logger.info("  Saved: feature_importance.png")
     
     logger.info("\nAll visualizations generated successfully!")
 

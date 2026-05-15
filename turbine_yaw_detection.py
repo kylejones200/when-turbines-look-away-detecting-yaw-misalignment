@@ -6,7 +6,7 @@ Detects turbine misalignment without yaw sensors using H2 void features.
 
 import logging
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import gudhi
 import matplotlib.pyplot as plt
@@ -21,8 +21,6 @@ from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
-    classification_report,
-    confusion_matrix,
     f1_score,
     roc_auc_score,
 )
@@ -115,7 +113,7 @@ def _normalize_nrel_columns(df: pd.DataFrame) -> pd.DataFrame:
 def fetch_nrel_wind_data(
     lat: float = 41.5,
     lon: float = -100.5,
-    years: List[int] | None = None,
+    years: list[int] | None = None,
     email: str = DEFAULT_NREL_EMAIL,
 ) -> pd.DataFrame:
     """Fetch real wind data from the NREL Wind Toolkit API."""
@@ -127,9 +125,9 @@ def fetch_nrel_wind_data(
         "Requesting NREL Wind Toolkit data lat=%.3f lon=%.3f years=%s", lat, lon, years
     )
 
-    all_frames: List[pd.DataFrame] = []
+    all_frames: list[pd.DataFrame] = []
     for year in years:
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "api_key": api_key,
             "lat": lat,
             "lon": lon,
@@ -169,7 +167,7 @@ def simulate_turbine_power_yaw(
     wind_direction: np.ndarray,
     turbine_yaw: np.ndarray,
     rated_power: float = YAW_RATED_POWER_MW,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Simulate turbine power and rotor speed with yaw effects.
 
     Misalignment reduces power according to the cosine-cubed law.
@@ -210,7 +208,7 @@ def simulate_turbine_power_yaw(
 
 def create_yaw_scenarios(
     df: pd.DataFrame, n_windows: int = 120, window_size: int = 288
-) -> Tuple[List[pd.DataFrame], np.ndarray]:
+) -> tuple[list[pd.DataFrame], np.ndarray]:
     """Create labeled windows of aligned vs misaligned turbines."""
     logger.info("Creating %d labeled windows (aligned vs misaligned)", n_windows)
     
@@ -320,12 +318,12 @@ def compute_cech_persistence_features(window_df, max_dim=2):
     return features
 
 def extract_all_features(
-    windows: List[pd.DataFrame], labels: np.ndarray
-) -> Tuple[pd.DataFrame, np.ndarray]:
+    windows: list[pd.DataFrame], labels: np.ndarray
+) -> tuple[pd.DataFrame, np.ndarray]:
     """Extract Čech persistence features for all windows."""
     logger.info("Extracting Čech persistence features (H0, H1, H2)")
 
-    feature_list: List[Dict[str, float]] = []
+    feature_list: list[dict[str, float]] = []
     for i, window_df in enumerate(windows):
         if i % 20 == 0:
             logger.info("Processing window %d/%d", i + 1, len(windows))
@@ -350,7 +348,7 @@ def extract_all_features(
 
 def train_and_evaluate_models(
     X: pd.DataFrame, y: np.ndarray
-) -> Tuple[Dict[str, Dict[str, Any]], pd.DataFrame, np.ndarray]:
+) -> tuple[dict[str, dict[str, Any]], pd.DataFrame, np.ndarray]:
     """Train and evaluate classifiers."""
     logger.info("TRAINING AND EVALUATION")
 
@@ -361,7 +359,7 @@ def train_and_evaluate_models(
     logger.info("Train set: %d samples", len(X_train))
     logger.info("Test set: %d samples", len(X_test))
     
-    models: Dict[str, Any] = {
+    models: dict[str, Any] = {
         "Logistic Regression": LogisticRegression(random_state=42, max_iter=1000),
         "SVM (Linear)": SVC(kernel="linear", random_state=42, probability=True),
         "SVM (RBF)": SVC(kernel="rbf", random_state=42, probability=True),
@@ -371,7 +369,7 @@ def train_and_evaluate_models(
         ),
     }
 
-    results: Dict[str, Dict[str, Any]] = {}
+    results: dict[str, dict[str, Any]] = {}
 
     for name, model in models.items():
         logger.info("Training model: %s", name)
@@ -402,11 +400,11 @@ def train_and_evaluate_models(
     return results, X_test, y_test
 
 def generate_visualizations(
-    windows: List[pd.DataFrame],
+    windows: list[pd.DataFrame],
     labels: np.ndarray,
     X: pd.DataFrame,
     y: np.ndarray,
-    results: Dict[str, Dict[str, Any]],
+    results: dict[str, dict[str, Any]],
     out_dir: Path | str,
 ) -> None:
     """Generate and save all yaw misalignment visualizations."""
