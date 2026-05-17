@@ -23,3 +23,7 @@ nrel:
   - 2018
   attributes: windspeed_100m,winddirection_100m,temperature_100m
   interval: '60'
+cv:
+  n_splits: 5
+  strategy: time_series
+  gap: 0

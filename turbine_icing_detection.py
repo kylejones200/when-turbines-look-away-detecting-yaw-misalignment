@@ -182,8 +182,8 @@ def create_icing_scenarios(df, n_windows=120, window_size=288):
         window_df["power"] = power
         window_df["icing_severity"] = icing_severity
 
-        pd.concat([windows, window_df])
-        pd.concat([labels, 1])
+        windows.append(window_df)
+        labels.append(1)
 
     # Create no-icing windows
     for start in no_icing_sample:
@@ -199,8 +199,8 @@ def create_icing_scenarios(df, n_windows=120, window_size=288):
         window_df["power"] = power
         window_df["icing_severity"] = 0
 
-        pd.concat([windows, window_df])
-        pd.concat([labels, 0])
+        windows.append(window_df)
+        labels.append(0)
 
     logger.info(
         f"Created {sum(labels)} icing windows and {len(labels) - sum(labels)} no-icing windows"
@@ -312,7 +312,7 @@ def extract_all_features(windows, labels):
             logger.info(f"  Processing window {i + 1}/{len(windows)}")
 
         features = compute_multiparam_persistence_features(window_df)
-        pd.concat([feature_list, features])
+        feature_list.append(features)
 
     X = pd.DataFrame(feature_list)
     y = labels

@@ -147,7 +147,7 @@ def fetch_nrel_wind_data(
 
         year_df = pd.read_csv(StringIO(response.text))
         year_df = _normalize_nrel_columns(year_df)
-        pd.concat([all_frames, year_df])
+        all_frames.append(year_df)
 
     df = pd.concat(all_frames, axis=0).sort_values("timestamp").reset_index(drop=True)
     logger.info("Fetched %d NREL records spanning %d year(s)", len(df), len(years))
@@ -248,7 +248,7 @@ def create_yaw_scenarios(
         window_df["rotor_speed"] = rotor_speed
         window_df["turbine_yaw"] = turbine_yaw
 
-        pd.concat([windows, window_df])
+        windows.append(window_df)
         labels.append(1 if is_misaligned else 0)
 
     logger.info(
@@ -341,7 +341,7 @@ def extract_all_features(
             logger.info("Processing window %d/%d", i + 1, len(windows))
 
         features = compute_cech_persistence_features(window_df, max_dim=2)
-        pd.concat([feature_list, features])
+        feature_list.append(features)
 
     X = pd.DataFrame(feature_list)
     y = labels
