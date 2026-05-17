@@ -396,7 +396,7 @@ def classify_with_mapper(
         if nearest_node is not None:
             predictions.append(node_labels[nearest_node])
         else:
-            pd.concat([predictions, 0])  # Default to aligned
+            predictions.append(0)  # Default to aligned
 
     return np.array(predictions)
 

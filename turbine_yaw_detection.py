@@ -37,7 +37,7 @@ logging.basicConfig(
 NREL_API_URL = (
     "https://developer.nrel.gov/api/wind-toolkit/v2/wind/wtk-bchrrr-v1-0-0-download.csv"
 )
-DEFAULT_NREL_EMAIL = "kyletjones@gmail.com"
+DEFAULT_NREL_EMAIL = os.getenv('NREL_EMAIL', '')
 
 
 def _get_nrel_api_key() -> str:
@@ -50,7 +50,7 @@ def _get_nrel_api_key() -> str:
     if not api_key:
         raise RuntimeError(
             "NREL_API_KEY environment variable is not set. "
-            "Export your key, e.g. `export NREL_API_KEY='your-key-here'`."
+            "Export your key, e.g. `export NREL_API_KEY = os.getenv("NREL_API_KEY", "")`."
         )
     return api_key
 
