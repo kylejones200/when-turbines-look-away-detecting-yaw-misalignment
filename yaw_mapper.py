@@ -101,7 +101,7 @@ def fetch_nrel_wind_data(config=None):
         df_year["time"] = pd.to_datetime(
             df_year[["Year", "Month", "Day", "Hour", "Minute"]]
         )
-        pd.concat([all_data, df_year])
+        all_data.append(df_year)
         logger.info(f"     ✓ Fetched {len(df_year):,} records")
 
     if not all_data:
