@@ -50,7 +50,7 @@ def _get_nrel_api_key() -> str:
     if not api_key:
         raise RuntimeError(
             "NREL_API_KEY environment variable is not set. "
-            "Export your key, e.g. `export NREL_API_KEY = os.getenv("NREL_API_KEY", "")`."
+            'Export your key, e.g. export NREL_API_KEY=your_key_here'
         )
     return api_key
 
