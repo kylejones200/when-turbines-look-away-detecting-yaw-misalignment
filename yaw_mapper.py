@@ -5,19 +5,22 @@ Detects misalignment from operational patterns without wind direction sensors
 
 import bisect
 import logging
-import os
-from io import StringIO
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-import requests
 from sklearn.cluster import KMeans
 from sklearn.metrics import accuracy_score, classification_report
 
+from nrel_wtk import fetch_nrel_wind_data, load_config
+
 logger = logging.getLogger(__name__)
+
+_REGIME_CUTS = [3.0, 12.0]
+config = load_config()
+plot = config.get("output", {}).get("generate_plots", False)
 def _turbine_state(w_eff: float, rated_power: float) -> tuple[float, float]:
     """Return (target_power, target_rpm) for effective wind speed."""
     match bisect.bisect_right(_REGIME_CUTS, w_eff):
@@ -175,75 +178,6 @@ def create_windows_with_filters(df, window_size=10):
             }
         )
     return pd.DataFrame(windows)
-
-
-def fetch_nrel_wind_data(config=None):
-    """Fetch wind data from NREL."""
-    if config is None:
-        config = {}
-    nrel = config.get("nrel", {})
-    lat = nrel.get("lat", 41.5)
-    lon = nrel.get("lon", -93.5)
-    years = nrel.get("years", [2017])
-    attributes = nrel.get("attributes", "windspeed_100m,temperature_100m")
-    interval = nrel.get("interval", "60")
-    email = os.getenv("NREL_EMAIL", "")
-    all_data = []
-    for year in years:
-        logger.info(f"   Fetching year {year}...")
-        params = {
-            "api_key": NREL_API_KEY,
-            "wkt": f"POINT({lon} {lat})",
-            "attributes": attributes,
-            "names": str(year),
-            "utc": "true",
-            "leap_day": "false",
-            "interval": interval,
-            "email": email,
-        }
-        try:
-            response = requests.get(NREL_API_URL, params=params, timeout=120)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            logger.warning("Year %s fetch failed: %s", year, e)
-            continue
-        lines = response.text.strip().split("\n")
-        data_start = 0
-        for i, line in enumerate(lines):
-            if line.startswith("Year,"):
-                data_start = i + 1
-                break
-        data_text = "\n".join(lines[data_start:])
-        df_year = pd.read_csv(
-            StringIO(data_text),
-            header=None,
-            names=[
-                "Year",
-                "Month",
-                "Day",
-                "Hour",
-                "Minute",
-                "windspeed_100m",
-                "winddirection_100m",
-                "temperature_100m",
-            ],
-        )
-        df_year["time"] = pd.to_datetime(df_year[["Year", "Month", "Day", "Hour", "Minute"]])
-        all_data.append(df_year)
-        logger.info(f"     ✓ Fetched {len(df_year):,} records")
-    if not all_data:
-        return None
-    return pd.concat(all_data, ignore_index=True).sort_values("time")
-
-
-def load_config(config_path=None):
-    """Load configuration from YAML file."""
-    if config_path is None:
-        config_path = Path(__file__).parent / "config.yaml"
-    if not config_path.exists():
-        return {}
-    with open(config_path) as _f:
-        return _yaml.safe_load(_f) or {}
 
 
 def simulate_turbine_with_misalignment(wind_df, rated_power=2000):

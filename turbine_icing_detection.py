@@ -18,16 +18,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 
 
-def load_config(config_path=None):
-    """Load configuration from YAML file."""
-    if config_path is None:
-        config_path = Path(__file__).parent / "config.yaml"
-    if not config_path.exists():
-        return {}
-    with open(config_path) as _f:
-        import yaml as _yaml
-
-        return _yaml.safe_load(_f) or {}
+from nrel_wtk import load_config
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
