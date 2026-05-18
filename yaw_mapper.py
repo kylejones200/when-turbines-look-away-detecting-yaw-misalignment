@@ -4,6 +4,7 @@ Detects misalignment from operational patterns without wind direction sensors
 """
 
 import bisect
+import logging
 import os
 from io import StringIO
 from pathlib import Path
@@ -16,7 +17,7 @@ import requests
 from sklearn.cluster import KMeans
 from sklearn.metrics import accuracy_score, classification_report
 
-
+logger = logging.getLogger(__name__)
 def _turbine_state(w_eff: float, rated_power: float) -> tuple[float, float]:
     """Return (target_power, target_rpm) for effective wind speed."""
     match bisect.bisect_right(_REGIME_CUTS, w_eff):
@@ -31,7 +32,6 @@ def _turbine_state(w_eff: float, rated_power: float) -> tuple[float, float]:
 def build_mapper_graph(X, filter1, filter2, n_bins=10, overlap=0.5, n_clusters=2):
     """
     Build Mapper graph.
-
     Args:
         X: Data array (n_samples x n_features)
         filter1: Filter function values (n_samples)
@@ -94,7 +94,6 @@ def build_mapper_graph(X, filter1, filter2, n_bins=10, overlap=0.5, n_clusters=2
 def classify_with_mapper(G, X_train, y_train, X_test, filter1_test, filter2_test, n_bins=10):
     """
     Classify test points using Mapper graph.
-
     Each node in graph is labeled with majority class of its training points.
     Test points are assigned to nearest node in filter space.
     """
@@ -141,7 +140,6 @@ def compute_expected_power(wind_speed, rated_power=2000):
 def create_windows_with_filters(df, window_size=10):
     """
     Create windows and compute filter values.
-
     Filter 1: Power ratio (actual / expected)
     Filter 2: Rotor speed variability (std)
     """
@@ -251,7 +249,6 @@ def load_config(config_path=None):
 def simulate_turbine_with_misalignment(wind_df, rated_power=2000):
     """
     Simulate turbine with periodic yaw misalignment.
-
     Misalignment causes:
     - Power reduction by cos(angle)
     - Increased variability from asymmetric loading
@@ -339,59 +336,34 @@ def visualize_mapper_graph(G, y_labels, out_dir, plot: bool = False):
 
 def seed() -> None:
     np.random.seed(config.get("data", {}).get("seed", 42))
-
     logger.info("Yaw Misalignment Detection Using Mapper")
-
     logger.info("\n1. Fetching NREL wind data...")
-
     wind_data = fetch_nrel_wind_data(config=config)
-
     if wind_data is None:
         logger.error("Failed to fetch data", exc_info=True)
         return
 
     logger.info(f"   Total records: {len(wind_data):,}")
-
     logger.info("\n2. Simulating turbine with yaw misalignment...")
-
     df = simulate_turbine_with_misalignment(wind_data)
-
     misalign_pct = (df["yaw_misalignment"].abs() > 10).sum() / len(df) * 100
-
     logger.info(f"   Misalignment (>10°): {misalign_pct:.1f}% of time")
-
     logger.info("\n3. Creating windows and computing filters...")
-
     windows_df = create_windows_with_filters(df, window_size=10)
-
     logger.info(f"   Total windows: {len(windows_df)}")
-
     logger.info(f"   Aligned: {(windows_df['label'] == 0).sum()}")
-
     logger.info(f"   Misaligned: {(windows_df['label'] == 1).sum()}")
-
     logger.info("\n4. Splitting data...")
-
     split_idx = int(0.7 * len(windows_df))
-
     train_df = windows_df.iloc[:split_idx]
-
     test_df = windows_df.iloc[split_idx:]
-
     X_train = train_df[["filter1", "filter2"]].values
-
     y_train = train_df["label"].values
-
     X_test = test_df[["filter1", "filter2"]].values
-
     y_test = test_df["label"].values
-
     logger.info(f"   Train: {len(X_train)} windows")
-
     logger.info(f"   Test: {len(X_test)} windows")
-
     logger.info("\n5. Building Mapper graph...")
-
     G = build_mapper_graph(
         X_train,
         train_df["filter1"].values,
@@ -400,31 +372,20 @@ def seed() -> None:
         overlap=0.5,
         n_clusters=2,
     )
-
     logger.info(f"   Nodes: {G.number_of_nodes()}")
-
     logger.info(f"   Edges: {G.number_of_edges()}")
-
     logger.info(f"   Connected components: {nx.number_connected_components(G)}")
-
     logger.info("\n6. Classifying test set...")
-
     y_pred = classify_with_mapper(
         G, X_train, y_train, X_test, test_df["filter1"].values, test_df["filter2"].values
     )
-
     acc = accuracy_score(y_test, y_pred)
-
     logger.info(f"\n   Accuracy: {acc * 100:.2f}%")
-
     logger.info(
         f"\n{classification_report(y_test, y_pred, target_names=['Aligned', 'Misaligned'])}"
     )
-
     logger.info("\n7. Generating visualizations...")
-
     visualize_mapper_graph(G, y_train, "figures_yaw")
-
     if plot:
         fig, ax = plt.subplots(figsize=(10, 8))
         aligned_mask = y_test == 0
@@ -462,19 +423,12 @@ def seed() -> None:
         plt.close()
 
     logger.info("   Saved visualizations to figures_yaw/")
-
     logger.info("=== YAW MISALIGNMENT DETECTION COMPLETE ===")
-
     logger.info(f"\nMapper-based classification: {acc * 100:.1f}% accuracy")
-
     logger.info("Detects misalignment without wind direction sensors")
-
     logger.info("Graph structure reveals:")
-
     logger.info("  - Aligned and misaligned operational branches")
-
     logger.info("  - Temporal degradation trajectories")
-
     logger.info("  - Misalignment mechanism signatures")
 
 

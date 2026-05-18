@@ -7,9 +7,7 @@ import numpy as np
 from matplotlib.gridspec import GridSpec
 
 np.random.seed(42)
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 FPS, N_FRAMES = 10, 100
 n_samples = 400
@@ -42,10 +40,7 @@ def update(frame):
     ax2.clear()
     ax3.clear()
     end_idx = int((frame / N_FRAMES) * n_samples)
-
-    ax1.plot(
-        true_wind_dir[:end_idx], "black", linewidth=2, label="Wind Direction", alpha=0.6
-    )
+    ax1.plot(true_wind_dir[:end_idx], "black", linewidth=2, label="Wind Direction", alpha=0.6)
     ax1.plot(yaw_angle[:end_idx], "gray", linewidth=2, label="Yaw Angle")
     ax1.set_xlabel("Time", fontsize=10)
     ax1.set_ylabel("Angle (degrees)", fontsize=10)
@@ -57,7 +52,6 @@ def update(frame):
     ax1.legend(fontsize=9)
     ax1.spines["top"].set_visible(False)
     ax1.spines["right"].set_visible(False)
-
     if end_idx > 20:
         ax2.plot(misalignment[:end_idx], "gray", linewidth=1.5)
         ax2.axhline(0, color="black", linestyle="--", alpha=0.3)
@@ -106,7 +100,6 @@ def update(frame):
     ax3.axis("off")
     ax3.set_title("Status", fontsize=11, fontweight="normal")
     return []
-
 
 
 def main():

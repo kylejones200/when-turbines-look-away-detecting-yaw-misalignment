@@ -5,6 +5,8 @@ description = "Companion code for Medium article: when turbines look away detect
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "pydantic>=2.10.0",
+    "pytest>=8.0",
     "gudhi>=3.10.0",
     "matplotlib>=3.10.9",
     "networkx>=3.4.0",
@@ -24,3 +26,7 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
