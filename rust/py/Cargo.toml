@@ -1,0 +1,15 @@
+[package]
+name = "when_turbines_look_away_detecting_yaw_misalignment_rs"
+description = "Python bindings (PyO3) for when_turbines_look_away_detecting_yaw_misalignment_core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "when_turbines_look_away_detecting_yaw_misalignment_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+when_turbines_look_away_detecting_yaw_misalignment_core = { path = "../core" }
+pyo3 = { version = "0.28", features = ["extension-module"] }
+numpy = "0.28"

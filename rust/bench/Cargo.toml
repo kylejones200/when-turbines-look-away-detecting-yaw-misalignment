@@ -1,0 +1,13 @@
+[package]
+name = "when_turbines_look_away_detecting_yaw_misalignment_bench"
+description = "Standalone Rust benchmark (no Python)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "bench"
+path = "src/main.rs"
+
+[dependencies]
+when_turbines_look_away_detecting_yaw_misalignment_core = { path = "../core" }

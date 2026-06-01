@@ -1,0 +1,9 @@
+[package]
+name = "when_turbines_look_away_detecting_yaw_misalignment_core"
+description = "Yaw misalignment statistics (degrees)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"
