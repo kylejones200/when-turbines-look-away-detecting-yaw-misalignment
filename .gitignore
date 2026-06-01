@@ -103,3 +103,8 @@ tmp/
 temp/
 .tmp/
 rust/target/
+# macOS metadata on external volumes
+._*
+.AppleDouble
+# Backup files (may contain secrets)
+*.bak
